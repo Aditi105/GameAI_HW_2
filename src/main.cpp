@@ -10,10 +10,10 @@ class Crumb : public sf::CircleShape {
 public:
     Crumb(int id) : id(id) {
         // Set size and color for the breadcrumb.
-        this->setRadius(5.f);
-        this->setFillColor(sf::Color(0, 0, 255, 255));
-        this->setPosition(-100, -100); // initially offscreen
-        this->setOrigin(5.f, 5.f);
+        setRadius(5.f);
+        setFillColor(sf::Color(0, 0, 255, 255));
+        setPosition(-100, -100); // initially offscreen
+        setOrigin(5.f, 5.f);
     }
 
     void draw(sf::RenderWindow* window) {
@@ -21,7 +21,7 @@ public:
     }
 
     void drop(const sf::Vector2f& pos) {
-        this->setPosition(pos);
+        setPosition(pos);
     }
 
 private:
@@ -32,7 +32,7 @@ private:
 // Main Application
 // -----------------------------------------------------------------
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Part 2");
+    sf::RenderWindow window(sf::VideoMode(800, 600), "Arrive and Align Demo");
 
     // Load the boid texture.
     sf::Texture boidTexture;
@@ -46,8 +46,8 @@ int main() {
     boidSprite.setTexture(boidTexture);
     sf::FloatRect spriteBounds = boidSprite.getLocalBounds();
     boidSprite.setOrigin(spriteBounds.width / 2.f, spriteBounds.height / 2.f);
-    // Scale the sprite three times larger.
-    boidSprite.setScale(1.5f, 1.5f);
+    // Scale the sprite up by a factor of 4.
+    boidSprite.setScale(4.0f, 4.0f);
 
     // Initialize the boid's kinematic state.
     Kinematic character;
@@ -56,7 +56,7 @@ int main() {
     character.orientation = 0.f; // radians; 0 means facing right
     character.rotation = 0.f;
 
-    // Initialize the target kinematic.
+    // Initialize the target kinematic (starts at the character's position).
     Kinematic targetKinematic;
     targetKinematic.position = character.position;
     targetKinematic.velocity = sf::Vector2f(0.f, 0.f);
@@ -64,22 +64,26 @@ int main() {
     targetKinematic.rotation = 0.f;
 
     // Create Arrive and Align behaviors.
+    // (Increase slowRadius for earlier deceleration; adjust parameters as needed.)
     ArriveBehavior arrive(300.f,     // maxAcceleration
                           150.f,     // maxSpeed
                           5.f,       // targetRadius: within 5 pixels, consider arrived
-                          100.f,     // slowRadius: start decelerating within 100 pixels
+                          200.f,     // slowRadius: begin deceleration within 200 pixels
                           0.1f);     // timeToTarget
 
-    AlignBehavior align(5.f,         // maxAngularAcceleration
-                        PI / 4.f,    // maxRotation (45 degrees per second)
-                        0.05f,       // satisfactionRadius: if within 0.05 radians, no rotation
-                        0.5f,        // decelerationRadius: rotate slower when within 0.5 radians
+    AlignBehavior align(18.f,         // maxAngularAcceleration
+                        PI / 2.f,    // maxRotation (90 degrees per second)
+                        0.05f,       // satisfactionRadius: if within 0.05 radians, no rotation needed
+                        0.5f,        // decelerationRadius: begin slowing rotation within 0.5 radians
                         0.1f);       // timeToTarget
 
     sf::Clock clock;
 
     // The target position is updated on mouse clicks.
     sf::Vector2f targetPos = character.position;
+
+    // Introduce a flag to freeze updates once the boid has arrived.
+    bool frozen = false;
 
     // -----------------------------------------------------------------
     // Breadcrumbs: fixed-length vector (10 breadcrumbs), dropped at intervals.
@@ -94,17 +98,18 @@ int main() {
     const float dropInterval = 0.2f; // drop a crumb every 0.2 seconds
 
     // -----------------------------------------------------------------
-    // Main loop.
+    // Main Loop.
     // -----------------------------------------------------------------
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
-            // Update target position on left mouse click.
+            // On left mouse click, update the target position and unfreeze the boid.
             if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 targetPos = sf::Vector2f(static_cast<float>(event.mouseButton.x),
                                          static_cast<float>(event.mouseButton.y));
+                frozen = false;
             }
         }
 
@@ -113,38 +118,42 @@ int main() {
         // Update the target kinematic.
         targetKinematic.position = targetPos;
         sf::Vector2f toTarget = targetPos - character.position;
-        float distance = length(toTarget);
+        float distance = vectorLength(toTarget);
         if (distance > 0.001f)
             targetKinematic.orientation = std::atan2(toTarget.y, toTarget.x);
         else
             targetKinematic.orientation = character.orientation;
 
-        // Get steering outputs from Arrive and Align behaviors.
-        SteeringOutput arriveSteering = arrive.getSteering(character, targetKinematic, deltaTime);
-        SteeringOutput alignSteering = align.getSteering(character, targetKinematic, deltaTime);
+        if (!frozen) {
+            // Get steering outputs from Arrive and Align.
+            SteeringOutput arriveSteering = arrive.getSteering(character, targetKinematic, deltaTime);
+            SteeringOutput alignSteering = align.getSteering(character, targetKinematic, deltaTime);
 
-        // Update character's linear movement using Arrive.
-        character.velocity += arriveSteering.linear * deltaTime;
-        character.position += character.velocity * deltaTime;
+            // Update linear movement.
+            character.velocity += arriveSteering.linear * deltaTime;
+            character.position += character.velocity * deltaTime;
 
-        // If within target threshold and nearly stopped, snap to target and stop angular updates.
-        if (distance < 5.f && length(character.velocity) < 1.f) {
-            character.velocity = sf::Vector2f(0.f, 0.f);
-            character.position = targetPos;
-            // Prevent further rotation if arrived.
-            character.rotation = 0.f;
-        } else {
-            // Update character's angular movement using Align.
-            character.rotation += alignSteering.angular * deltaTime;
-            character.orientation += character.rotation * deltaTime;
-            character.orientation = mapToRange(character.orientation);
-        }
+            // Check arrival conditions: within 1 pixel and nearly zero speed.
+            bool arrived = (distance < 1.f) && (vectorLength(character.velocity) < 0.1f);
+            if (arrived) {
+                // Snap exactly to target.
+                character.position = targetPos;
+                character.velocity = sf::Vector2f(0.f, 0.f);
+                character.rotation = 0.f;
+                frozen = true;
+            } else {
+                // Update angular movement.
+                character.rotation += alignSteering.angular * deltaTime;
+                character.orientation += character.rotation * deltaTime;
+                character.orientation = mapToRange(character.orientation);
+            }
+        } // If frozen, no updates occur.
 
-        // Update the sprite's position and rotation (convert radians to degrees).
+        // Update sprite's position and rotation (convert radians to degrees).
         boidSprite.setPosition(character.position);
         boidSprite.setRotation(character.orientation * 180.f / PI);
 
-        // Update breadcrumb drop timer.
+        // Drop breadcrumbs at fixed intervals.
         dropTimer += deltaTime;
         if (dropTimer >= dropInterval) {
             dropTimer = 0.f;
@@ -152,13 +161,10 @@ int main() {
             crumbIndex = (crumbIndex + 1) % maxBreadcrumbs;
         }
 
-        // Rendering.
+        // Render everything.
         window.clear(sf::Color::White);
-        // Draw breadcrumbs.
-        for (auto& crumb : breadcrumbs) {
+        for (auto& crumb : breadcrumbs)
             crumb.draw(&window);
-        }
-        // Draw the boid sprite.
         window.draw(boidSprite);
         window.display();
     }

@@ -5,25 +5,40 @@
 #include <cmath>
 
 // -----------------------------------------------------------------
-// Utility functions
+// Utility Functions
 // -----------------------------------------------------------------
 
 const float PI = 3.14159265f;
 
-// Returns the length of a 2D vector.
-inline float length(const sf::Vector2f& v) {
+// Returns the length (magnitude) of a 2D vector.
+inline float vectorLength(const sf::Vector2f& v) {
     return std::sqrt(v.x * v.x + v.y * v.y);
 }
 
-// Returns a normalized copy of a vector (if length is nonzero).
+// Returns a normalized (unit) vector in the same direction as v.
 inline sf::Vector2f normalize(const sf::Vector2f& v) {
-    float len = length(v);
+    float len = vectorLength(v);
     if (len != 0)
         return sf::Vector2f(v.x / len, v.y / len);
     return v;
 }
 
-// Maps an angle (in radians) to the range [-PI, PI].
+// Clamps the magnitude of vector v to a maximum value.
+inline sf::Vector2f clamp(const sf::Vector2f& v, float maxVal) {
+    float len = vectorLength(v);
+    if (len > maxVal && len > 0)
+        return normalize(v) * maxVal;
+    return v;
+}
+
+// Clamps a scalar value to a maximum absolute value.
+inline float clamp(float value, float maxVal) {
+    if (std::abs(value) > maxVal)
+        return (value > 0) ? maxVal : -maxVal;
+    return value;
+}
+
+// Maps an angle (in radians) into the range [-PI, PI].
 inline float mapToRange(float angle) {
     while (angle > PI) angle -= 2 * PI;
     while (angle < -PI) angle += 2 * PI;
@@ -59,7 +74,7 @@ public:
 // -----------------------------------------------------------------
 // Arrive Behavior
 // -----------------------------------------------------------------
-// This behavior causes the boid to slow down as it nears the target.
+// This behavior makes the character accelerate toward the target and decelerate as it nears the target.
 class ArriveBehavior : public SteeringBehavior {
 public:
     ArriveBehavior(float maxAccel, float maxSpeed, float targetRadius, float slowRadius, float timeToTarget)
@@ -71,29 +86,22 @@ public:
     virtual SteeringOutput getSteering(const Kinematic& character, const Kinematic& target, float /*deltaTime*/) override {
         SteeringOutput steering;
         sf::Vector2f direction = target.position - character.position;
-        float distance = length(direction);
+        float distance = vectorLength(direction);
 
-        // If we're within the target radius, no steering is needed.
+        // If within the target radius, no steering is needed.
         if (distance < targetRadius) {
             steering.linear = sf::Vector2f(0.f, 0.f);
             steering.angular = 0.f;
             return steering;
         }
 
-        // Determine the target speed.
+        // If outside the slow radius, move at maximum speed.
         float targetSpeed = (distance > slowRadius) ? maxSpeed : maxSpeed * distance / slowRadius;
-        
-        // Calculate the desired velocity.
         sf::Vector2f desiredVelocity = normalize(direction) * targetSpeed;
-        
-        // Calculate acceleration required to reach the desired velocity.
+
+        // Calculate required acceleration.
         steering.linear = (desiredVelocity - character.velocity) / timeToTarget;
-        
-        // Clamp the acceleration if necessary.
-        if (length(steering.linear) > maxAcceleration) {
-            steering.linear = normalize(steering.linear) * maxAcceleration;
-        }
-        
+        steering.linear = clamp(steering.linear, maxAcceleration);
         steering.angular = 0.f;
         return steering;
     }
@@ -101,20 +109,20 @@ public:
 private:
     float maxAcceleration;
     float maxSpeed;
-    float targetRadius;   // when within this distance, we consider arrived
-    float slowRadius;     // start decelerating within this distance
+    float targetRadius;   // Within this distance, the character is considered "arrived."
+    float slowRadius;     // Begin slowing down when within this distance.
     float timeToTarget;
 };
 
 // -----------------------------------------------------------------
 // Align Behavior
 // -----------------------------------------------------------------
-// This behavior rotates the boid smoothly to match the target orientation.
+// This behavior smoothly rotates the character so that its orientation matches the target's orientation.
 class AlignBehavior : public SteeringBehavior {
 public:
-    AlignBehavior(float maxAngAccel, float maxRotation, float satisfactionRadius,
+    AlignBehavior(float maxAngAccel, float maxRot, float satisfactionRadius,
                   float decelerationRadius, float timeToTarget)
-        : maxAngularAcceleration(maxAngAccel), maxRotation(maxRotation),
+        : maxAngularAcceleration(maxAngAccel), maxRotation(maxRot),
           satisfactionRadius(satisfactionRadius), decelerationRadius(decelerationRadius),
           timeToTarget(timeToTarget)
     {}
@@ -125,27 +133,18 @@ public:
         rotation = mapToRange(rotation);
         float rotationSize = std::abs(rotation);
 
-        // If within satisfaction radius, no angular steering is needed.
+        // If within the satisfaction radius, no steering is needed.
         if (rotationSize < satisfactionRadius) {
             steering.angular = 0.f;
             steering.linear = sf::Vector2f(0.f, 0.f);
             return steering;
         }
-        
-        // Determine the desired rotation speed.
-        float desiredRotation = (rotationSize > decelerationRadius) ? maxRotation
-                               : maxRotation * rotationSize / decelerationRadius;
-        // Desired rotation maintains the sign of the original rotation.
+
+        // Calculate desired rotation.
+        float desiredRotation = (rotationSize > decelerationRadius) ? maxRotation : maxRotation * rotationSize / decelerationRadius;
         desiredRotation *= (rotation / rotationSize);
-        
-        // Calculate the angular acceleration.
         steering.angular = (desiredRotation - character.rotation) / timeToTarget;
-        
-        // Clamp the angular acceleration.
-        if (std::abs(steering.angular) > maxAngularAcceleration) {
-            steering.angular = (steering.angular / std::abs(steering.angular)) * maxAngularAcceleration;
-        }
-        
+        steering.angular = clamp(steering.angular, maxAngularAcceleration);
         steering.linear = sf::Vector2f(0.f, 0.f);
         return steering;
     }
@@ -153,8 +152,8 @@ public:
 private:
     float maxAngularAcceleration;
     float maxRotation;
-    float satisfactionRadius;   // in radians: if within, no rotation is needed.
-    float decelerationRadius;   // begin decelerating rotation within this range.
+    float satisfactionRadius;   // If the rotation difference is within this, no steering is applied.
+    float decelerationRadius;   // Begin decelerating rotation within this range.
     float timeToTarget;
 };
 

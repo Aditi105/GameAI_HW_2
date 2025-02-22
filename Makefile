@@ -1,13 +1,10 @@
-SRC_DIR := src
+# Pick up the first (and only) .cpp file in src, regardless of its name.
+SRC := $(firstword $(wildcard src/*.cpp))
 BUILD_DIR := build
-BIN_DIR := .
-
-SRC := $(wildcard $(SRC_DIR)/*.cpp)
-OBJ := $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(SRC))
-BIN := $(BIN_DIR)/main
+BIN := main
 
 CXX := g++
-CXXFLAGS := -std=c++17 -I$(SRC_DIR)
+CXXFLAGS := -std=c++17 -Isrc
 LDFLAGS := -lsfml-graphics -lsfml-window -lsfml-system
 
 UNAME_S := $(shell uname -s)
@@ -19,13 +16,17 @@ endif
 
 all: $(BIN)
 
-$(BIN): $(OBJ)
+$(BIN): $(BUILD_DIR)/main.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LIB_PATHS)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+$(BUILD_DIR)/main.o: $(SRC)
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $(SRC) -o $@
 
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR) $(BIN)
+
+.PHONY: run
+run: $(BIN)
+	./$(BIN)

@@ -1,8 +1,9 @@
-#ifndef STEERING_HPP
+#ifndef STEERING_HPP 
 #define STEERING_HPP
 
 #include <SFML/Graphics.hpp>
 #include <cmath>
+#include <cstdlib>
 
 // -----------------------------------------------------------------
 // Utility Functions
@@ -155,6 +156,62 @@ private:
     float satisfactionRadius;   // If the rotation difference is within this, no steering is applied.
     float decelerationRadius;   // Begin decelerating rotation within this range.
     float timeToTarget;
+};
+
+// -----------------------------------------------------------------
+// Wander Behavior
+// -----------------------------------------------------------------
+// This behavior causes the character to move forward while randomly changing direction.
+// It works by selecting a target point on a circle (offset in front of the character)
+// and then using an Arrive behavior to steer toward that target.
+class WanderBehavior : public SteeringBehavior {
+public:
+    WanderBehavior(float maxAccel, float maxSpeed,
+                   float wanderOffset, float wanderRadius,
+                   float wanderRate, float timeToTarget)
+        : maxAcceleration(maxAccel), maxSpeed(maxSpeed),
+          wanderOffset(wanderOffset), wanderRadius(wanderRadius),
+          wanderRate(wanderRate), timeToTarget(timeToTarget),
+          wanderOrientation(0.f)
+    {}
+
+    virtual SteeringOutput getSteering(const Kinematic& character, const Kinematic& /*unused*/, float /*deltaTime*/) override {
+        // Update the wander orientation with a random binomial value.
+        wanderOrientation += randomBinomial() * wanderRate;
+        float targetOrientation = character.orientation + wanderOrientation;
+        
+        // Calculate the center of the wander circle.
+        sf::Vector2f circleCenter = character.position + normalize(character.velocity) * wanderOffset;
+        // Calculate the displacement from the center.
+        sf::Vector2f displacement(std::cos(targetOrientation), std::sin(targetOrientation));
+        displacement *= wanderRadius;
+        
+        // Compute the target position on the wander circle.
+        sf::Vector2f wanderTarget = circleCenter + displacement;
+        
+        // Use Arrive behavior to steer toward the wander target.
+        Kinematic dummyTarget;
+        dummyTarget.position = wanderTarget;
+        dummyTarget.velocity = sf::Vector2f(0.f, 0.f);
+        dummyTarget.orientation = 0.f;
+        dummyTarget.rotation = 0.f;
+        ArriveBehavior arrive(maxAcceleration, maxSpeed, 5.f, wanderRadius, timeToTarget);
+        return arrive.getSteering(character, dummyTarget, 0.f);
+    }
+    
+private:
+    float maxAcceleration;
+    float maxSpeed;
+    float wanderOffset;
+    float wanderRadius;
+    float wanderRate;
+    float timeToTarget;
+    float wanderOrientation;
+
+    // Returns a random value between -1 and 1 (roughly binomially distributed).
+    float randomBinomial() {
+        return ((float)std::rand() / RAND_MAX) - ((float)std::rand() / RAND_MAX);
+    }
 };
 
 #endif // STEERING_HPP

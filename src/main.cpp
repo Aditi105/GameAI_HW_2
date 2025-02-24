@@ -166,7 +166,7 @@ private:
 int main()
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
-    sf::RenderWindow window(sf::VideoMode(600, 600), "Wander with Image Boid");
+    sf::RenderWindow window(sf::VideoMode(600, 600), "Part 3");
     window.setFramerateLimit(60);
 
     // Load the boid texture from file "boid-sm.png"

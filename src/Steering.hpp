@@ -73,9 +73,9 @@ public:
 };
 
 // -----------------------------------------------------------------
-// Arrive Behavior
+// Arrive Behavior (Position Matching)
 // -----------------------------------------------------------------
-// This behavior makes the character accelerate toward the target and decelerate as it nears the target.
+
 class ArriveBehavior : public SteeringBehavior {
 public:
     ArriveBehavior(float maxAccel, float maxSpeed, float targetRadius, float slowRadius, float timeToTarget)
@@ -116,9 +116,9 @@ private:
 };
 
 // -----------------------------------------------------------------
-// Align Behavior
+// Align Behavior (Orientation Matching)
 // -----------------------------------------------------------------
-// This behavior smoothly rotates the character so that its orientation matches the target's orientation.
+
 class AlignBehavior : public SteeringBehavior {
 public:
     AlignBehavior(float maxAngAccel, float maxRot, float satisfactionRadius,
@@ -161,9 +161,7 @@ private:
 // -----------------------------------------------------------------
 // Wander Behavior
 // -----------------------------------------------------------------
-// This behavior causes the character to move forward while randomly changing direction.
-// It works by selecting a target point on a circle (offset in front of the character)
-// and then using an Arrive behavior to steer toward that target.
+
 class WanderBehavior : public SteeringBehavior {
 public:
     WanderBehavior(float maxAccel, float maxSpeed,
@@ -212,6 +210,55 @@ private:
     float randomBinomial() {
         return ((float)std::rand() / RAND_MAX) - ((float)std::rand() / RAND_MAX);
     }
+};
+
+// -----------------------------------------------------------------
+// Velocity Matching Behavior
+// -----------------------------------------------------------------
+// This behavior causes the character to match the linear velocity of the target.
+// In our demo, the target is the mouse pointer (with its velocity computed each frame).
+class VelocityMatchingBehavior : public SteeringBehavior {
+public:
+    VelocityMatchingBehavior(float maxAccel, float timeToTarget)
+        : maxAcceleration(maxAccel), timeToTarget(timeToTarget)
+    {}
+
+    virtual SteeringOutput getSteering(const Kinematic& character, const Kinematic& target, float /*deltaTime*/) override {
+        SteeringOutput steering;
+        // Compute the acceleration needed to match target velocity.
+        steering.linear = (target.velocity - character.velocity) / timeToTarget;
+        steering.linear = clamp(steering.linear, maxAcceleration);
+        steering.angular = 0.f;
+        return steering;
+    }
+
+private:
+    float maxAcceleration;
+    float timeToTarget;
+};
+
+// -----------------------------------------------------------------
+// Rotation Matching Behavior
+// -----------------------------------------------------------------
+// This behavior causes the character to match the angular velocity (rotation) of the target.
+class RotationMatchingBehavior : public SteeringBehavior {
+public:
+    RotationMatchingBehavior(float maxAngAccel, float timeToTarget)
+        : maxAngularAcceleration(maxAngAccel), timeToTarget(timeToTarget)
+    {}
+
+    virtual SteeringOutput getSteering(const Kinematic& character, const Kinematic& target, float /*deltaTime*/) override {
+        SteeringOutput steering;
+        float rotationDiff = target.rotation - character.rotation;
+        steering.angular = rotationDiff / timeToTarget;
+        steering.angular = clamp(steering.angular, maxAngularAcceleration);
+        steering.linear = sf::Vector2f(0.f, 0.f);
+        return steering;
+    }
+
+private:
+    float maxAngularAcceleration;
+    float timeToTarget;
 };
 
 #endif // STEERING_HPP

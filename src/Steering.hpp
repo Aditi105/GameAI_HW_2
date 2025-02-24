@@ -4,6 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 // -----------------------------------------------------------------
 // Utility Functions
@@ -206,7 +207,7 @@ private:
     float timeToTarget;
     float wanderOrientation;
 
-    // Returns a random value between -1 and 1 (roughly binomially distributed).
+    // Returns a random value roughly between -1 and 1.
     float randomBinomial() {
         return ((float)std::rand() / RAND_MAX) - ((float)std::rand() / RAND_MAX);
     }
@@ -259,6 +260,80 @@ public:
 private:
     float maxAngularAcceleration;
     float timeToTarget;
+};
+
+// -----------------------------------------------------------------
+// Flocking Behavior (Boids)
+// -----------------------------------------------------------------
+// Blends separation (avoiding close neighbors), alignment (matching average velocity),
+// and cohesion (steering toward the center-of-mass) of nearby boids.
+// If no neighbors are detected, it falls back to wandering.
+class FlockingBehavior : public SteeringBehavior {
+public:
+    FlockingBehavior(const std::vector<Kinematic>* flock,
+                     float neighborRadius, float separationRadius,
+                     float separationWeight, float alignmentWeight, float cohesionWeight,
+                     float maxAcceleration,
+                     // Parameters for the embedded wander behavior:
+                     float wanderMaxAccel, float wanderMaxSpeed, float wanderOffset,
+                     float wanderRadius, float wanderRate, float wanderTimeToTarget)
+        : flock(flock), neighborRadius(neighborRadius), separationRadius(separationRadius),
+          separationWeight(separationWeight), alignmentWeight(alignmentWeight), cohesionWeight(cohesionWeight),
+          maxAcceleration(maxAcceleration),
+          wander(wanderMaxAccel, wanderMaxSpeed, wanderOffset, wanderRadius, wanderRate, wanderTimeToTarget)
+    {}
+
+    virtual SteeringOutput getSteering(const Kinematic& character, const Kinematic& /*unused*/, float deltaTime) override {
+        sf::Vector2f separation(0.f, 0.f);
+        sf::Vector2f alignment(0.f, 0.f);
+        sf::Vector2f cohesion(0.f, 0.f);
+        int count = 0;
+        for (const auto& other : *flock) {
+            // Skip self by comparing addresses.
+            if (&other == &character)
+                continue;
+            sf::Vector2f toOther = other.position - character.position;
+            float distance = vectorLength(toOther);
+            if (distance < neighborRadius && distance > 0.f) {
+                alignment += other.velocity;
+                cohesion += other.position;
+                count++;
+                if (distance < separationRadius) {
+                    // Weight the separation force inversely with distance.
+                    separation += (character.position - other.position) / distance;
+                }
+            }
+        }
+        
+        SteeringOutput steering;
+        if (count == 0) {
+            // If no neighbors, use wander.
+            return wander.getSteering(character, character, deltaTime);
+        }
+        
+        alignment = alignment / static_cast<float>(count);
+        cohesion = (cohesion / static_cast<float>(count)) - character.position;
+        
+        // Blend the behaviors using provided weights.
+        sf::Vector2f flockingForce = separation * separationWeight +
+                                     alignment * alignmentWeight +
+                                     cohesion * cohesionWeight;
+        flockingForce = clamp(flockingForce, maxAcceleration);
+        
+        steering.linear = flockingForce;
+        steering.angular = 0.f;
+        return steering;
+    }
+
+private:
+    const std::vector<Kinematic>* flock;
+    float neighborRadius;
+    float separationRadius;
+    float separationWeight;
+    float alignmentWeight;
+    float cohesionWeight;
+    float maxAcceleration;
+    WanderBehavior wander;
 };
 
 #endif // STEERING_HPP

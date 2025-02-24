@@ -10,7 +10,7 @@ class Crumb : public sf::CircleShape {
 public:
     Crumb(int id) : id(id) {
         setRadius(5.f);
-        setFillColor(sf::Color(0, 0, 255, 255));
+        setFillColor(sf::Color(0, 69, 213, 248));
         setPosition(-100, -100); // initially offscreen
         setOrigin(5.f, 5.f);
     }
@@ -28,7 +28,7 @@ private:
 };
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Part 2");
+    sf::RenderWindow window(sf::VideoMode(640, 480), "Part 2");
 
     // Load the boid texture.
     sf::Texture boidTexture;
@@ -62,19 +62,19 @@ int main() {
     // Create Arrive and Align behaviors.
     // ArriveBehavior(maxAcceleration, maxSpeed, targetRadius, slowRadius, timeToTarget)
     ArriveBehavior arrive(
-        300.f,    // Maximum linear acceleration (pixels/second^2)
-        250.f,    // Maximum speed (pixels/second)
-        5.f,      // Target radius: if within 5 pixels, consider arrived (and no further acceleration)
-        200.f,    // Slow radius: begin deceleration when within 200 pixels of the target
-        0.05f      // Time to target: time over which to achieve the target speed (in seconds)
+        200.f,    // Maximum linear acceleration (pixels/second^2)
+        300.f,    // Maximum speed (pixels/second)
+        15.f,      // Target radius: if within 5 pixels, consider arrived (and no further acceleration)
+        20.f,    // Slow radius: begin deceleration when within 200 pixels of the target
+        0.2f      // Time to target: time over which to achieve the target speed (in seconds)
     );
 
     // AlignBehavior(maxAngularAcceleration, maxRotation, satisfactionRadius, decelerationRadius, timeToTarget)
     AlignBehavior align(
-        18.f,          // Maximum angular acceleration (radians/second^2)
-        PI / 1.f,      // Maximum rotation speed (radians/second) - here 90° per second
-        0.05f,         // Satisfaction radius: if within 0.05 radians, no further rotation is needed
-        0.5f,          // Deceleration radius: begin decelerating rotation when within 0.5 radians
+        200.f,          // Maximum angular acceleration (radians/second^2)
+        PI / 4.0f,      // Maximum rotation speed (radians/second) - here 90° per second
+        0.1f,         // Satisfaction radius: if within 0.05 radians, no further rotation is needed
+        0.1f,          // Deceleration radius: begin decelerating rotation when within 0.5 radians
         0.1f           // Time to target: time over which to achieve the target rotation (in seconds)
     );
 
@@ -90,7 +90,7 @@ int main() {
     // -----------------------------------------------------------------
     // Breadcrumbs: fixed-length vector (10 breadcrumbs), dropped at intervals.
     // -----------------------------------------------------------------
-    const int maxBreadcrumbs = 150;
+    const int maxBreadcrumbs = 50;
     std::vector<Crumb> breadcrumbs;
     for (int i = 0; i < maxBreadcrumbs; i++) {
         breadcrumbs.push_back(Crumb(i));

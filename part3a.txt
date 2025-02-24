@@ -56,9 +56,9 @@ public:
         maxAcceleration = 50.f;
         // Create wander behavior with chosen parameters.
         wanderBehavior = new WanderBehavior(maxAcceleration, maxSpeed,
-                                            150.f,  // wander offset
-                                            30.f,  // wander circle radius
-                                            0.5f,  // wander rate (radians per update)
+                                            20.f,  // wander offset
+                                            100.f,  // wander circle radius
+                                            2.0f,  // wander rate (radians per update)
                                             0.1f); // time to target for Arrive part
 
         // Set up the sprite using the provided texture.

@@ -1,4 +1,4 @@
-#include "SteeringBehaviors.hpp"
+#include "VelocityMatching.hpp"
 #include <SFML/Graphics.hpp>
 #include <cmath>
 #include <iostream>
@@ -61,7 +61,7 @@ SteeringOutput RotationMatching::getSteering(const Kinematic& character, const K
 // ---------------------------
 int main() {
     // Create the SFML window
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Velocity & Orientation Matching Demo");
+    sf::RenderWindow window(sf::VideoMode(640, 480), "Part 1");
     window.setFramerateLimit(60);
 
     // Load the texture from the file "src/boid-sm.png"

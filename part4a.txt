@@ -50,15 +50,15 @@ struct BoidBreadcrumbs {
 // -----------------------------------------------------------------
 // Window and Boid Settings
 // -----------------------------------------------------------------
-const int windowWidth = 640;
-const int windowHeight = 480;
-const int numBoids = 100;
+const int windowWidth = 800;
+const int windowHeight = 600;
+const int numBoids = 150;
 
 // Flocking parameters tuned for grouping together.
-const float neighborRadius    = 60.f;
-const float separationRadius  = 40.f;
-const float separationWeight  = 150.0f;
-const float alignmentWeight   = 1.0f;
+const float neighborRadius    = 20.f;
+const float separationRadius  = 20.f;
+const float separationWeight  = 5.0f;
+const float alignmentWeight   = 1.f;
 const float cohesionWeight    = 1.0f;
 const float maxAccel          = 250.f;  // maximum acceleration (and steering force)
 
@@ -129,7 +129,7 @@ int main()
         boidBreadcrumbs.push_back(BoidBreadcrumbs());
     }
 
-    sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Flocking & Wander Demo");
+    sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Part 4");
     window.setFramerateLimit(60);
     sf::Clock clock;
 

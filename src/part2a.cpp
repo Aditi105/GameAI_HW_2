@@ -3,14 +3,13 @@
 #include <vector>
 #include <iostream>
 
-// -----------------------------------------------------------------
-// Crumb Class: Represents a breadcrumb dropped along the boid's path.
-// -----------------------------------------------------------------
+
+
 class Crumb : public sf::CircleShape {
 public:
     Crumb(int id) : id(id) {
         setRadius(5.f);
-        setFillColor(sf::Color(0, 0, 255, 255));
+        setFillColor(sf::Color(0, 69, 213, 248));
         setPosition(-100, -100); // initially offscreen
         setOrigin(5.f, 5.f);
     }
@@ -30,22 +29,18 @@ private:
 int main() {
     sf::RenderWindow window(sf::VideoMode(640, 480), "Part 2");
 
-    // Load the boid texture.
     sf::Texture boidTexture;
     if (!boidTexture.loadFromFile("./src/boid-sm.png")) {
         std::cerr << "Failed to load boid-sm.png" << std::endl;
         return -1;
     }
 
-    // Create the boid sprite.
     sf::Sprite boidSprite;
     boidSprite.setTexture(boidTexture);
     sf::FloatRect spriteBounds = boidSprite.getLocalBounds();
     boidSprite.setOrigin(spriteBounds.width / 2.f, spriteBounds.height / 2.f);
-    // Scale the sprite up by a factor of 4.
     boidSprite.setScale(4.0f, 4.0f);
 
-    // Initialize the boid's kinematic state.
     Kinematic character;
     character.position = sf::Vector2f(400.f, 300.f);
     character.velocity = sf::Vector2f(0.f, 0.f);
@@ -59,22 +54,20 @@ int main() {
     targetKinematic.orientation = character.orientation;
     targetKinematic.rotation = 0.f;
 
-    // Create Arrive and Align behaviors.
-    // ArriveBehavior(maxAcceleration, maxSpeed, targetRadius, slowRadius, timeToTarget)
+    // Arrive and Align behaviors.
     ArriveBehavior arrive(
-        300.f,    // Maximum linear acceleration (pixels/second^2)
-        250.f,    // Maximum speed (pixels/second)
-        5.f,      // Target radius: if within 5 pixels, consider arrived (and no further acceleration)
-        200.f,    // Slow radius: begin deceleration when within 200 pixels of the target
-        0.05f      // Time to target: time over which to achieve the target speed (in seconds)
+        200.f,    // Maximum linear acceleration (pixels/second^2)
+        300.f,    // Maximum speed (pixels/second)
+        15.f,      // Target radius: if within 5 pixels, consider arrived (and no further acceleration)
+        20.f,    // Slow radius: begin deceleration when within 200 pixels of the target
+        0.2f      // Time to target: time over which to achieve the target speed (in seconds)
     );
 
-    // AlignBehavior(maxAngularAcceleration, maxRotation, satisfactionRadius, decelerationRadius, timeToTarget)
     AlignBehavior align(
-        18.f,          // Maximum angular acceleration (radians/second^2)
-        PI / 1.f,      // Maximum rotation speed (radians/second) - here 90° per second
-        0.05f,         // Satisfaction radius: if within 0.05 radians, no further rotation is needed
-        0.5f,          // Deceleration radius: begin decelerating rotation when within 0.5 radians
+        200.f,          // Maximum angular acceleration (radians/second^2)
+        PI / 4.0f,      // Maximum rotation speed (radians/second) - here 90° per second
+        0.1f,         // Satisfaction radius: if within 0.05 radians, no further rotation is needed
+        0.1f,          // Deceleration radius: begin decelerating rotation when within 0.5 radians
         0.1f           // Time to target: time over which to achieve the target rotation (in seconds)
     );
 
@@ -82,15 +75,13 @@ int main() {
     sf::Clock clock;
     // The target position is updated on mouse clicks.
     sf::Vector2f targetPos = character.position;
-    // Freeze flag: once true, the boid remains at the target.
+    // Freeze flag: if true, the boid remains stationary at the target.
     bool frozen = false;
-    // Store the final orientation when the boid arrives.
     float finalOrientation = character.orientation;
 
-    // -----------------------------------------------------------------
-    // Breadcrumbs: fixed-length vector (10 breadcrumbs), dropped at intervals.
-    // -----------------------------------------------------------------
-    const int maxBreadcrumbs = 150;
+ 
+
+    const int maxBreadcrumbs = 50;
     std::vector<Crumb> breadcrumbs;
     for (int i = 0; i < maxBreadcrumbs; i++) {
         breadcrumbs.push_back(Crumb(i));
@@ -99,9 +90,8 @@ int main() {
     float dropTimer = 0.f;
     const float dropInterval = 0.2f; // drop a crumb every 0.2 seconds
 
-    // -----------------------------------------------------------------
-    // Main Loop.
-    // -----------------------------------------------------------------
+   
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -117,7 +107,6 @@ int main() {
 
         float deltaTime = clock.restart().asSeconds();
 
-        // Update the target kinematic.
         targetKinematic.position = targetPos;
         sf::Vector2f toTarget = targetPos - character.position;
         float distance = vectorLength(toTarget);
@@ -127,11 +116,11 @@ int main() {
             targetKinematic.orientation = character.orientation;
 
         if (!frozen) {
-            // Get steering outputs.
+            // Getting steering outputs.
             SteeringOutput arriveSteering = arrive.getSteering(character, targetKinematic, deltaTime);
             SteeringOutput alignSteering = align.getSteering(character, targetKinematic, deltaTime);
 
-            // Update linear movement.
+            // Updating linear movement.
             character.velocity += arriveSteering.linear * deltaTime;
             character.position += character.velocity * deltaTime;
 
@@ -141,7 +130,6 @@ int main() {
                 character.position = targetPos;
                 character.velocity = sf::Vector2f(0.f, 0.f);
                 character.rotation = 0.f;
-                // Store the final orientation (from the target).
                 finalOrientation = targetKinematic.orientation;
                 frozen = true;
             } else {
@@ -151,8 +139,7 @@ int main() {
                 character.orientation = mapToRange(character.orientation);
             }
         } else {
-            // When frozen, force the orientation to remain constant.
-            //character.orientation = finalOrientation;
+            // When frozen, force the boid to remain constant.
             character.velocity = sf::Vector2f(0,0);
             character.rotation = 0.f;
         }
@@ -166,7 +153,7 @@ int main() {
         boidSprite.setPosition(character.position);
         boidSprite.setRotation(character.orientation * 180.f / PI);
 
-        // Drop breadcrumbs.
+        // Drop breadcrumbs
         dropTimer += deltaTime;
         if (dropTimer >= dropInterval) {
             dropTimer = 0.f;
@@ -174,7 +161,6 @@ int main() {
             crumbIndex = (crumbIndex + 1) % maxBreadcrumbs;
         }
 
-        // Rendering.
         window.clear(sf::Color::White);
         for (auto& crumb : breadcrumbs)
             crumb.draw(&window);

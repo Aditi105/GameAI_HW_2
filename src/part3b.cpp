@@ -4,9 +4,7 @@
 #include <ctime>
 #include "Steering.hpp"
 
-// ------------------------------
-// Breadcrumb Class (as provided)
-// ------------------------------
+
 const sf::Vector2f TOP_RIGHT(550, 0);
 const sf::Vector2f BOT_RIGHT(550, 550);
 const sf::Vector2f BOT_LEFT(0, 550);
@@ -15,13 +13,11 @@ const sf::Vector2f TOP_LEFT(0, 0);
 class crumb : public sf::CircleShape {
 public:
     crumb(int id) : id(id) {
-        // set initial position and size for breadcrumb
         this->setRadius(5.f);
         this->setFillColor(sf::Color(0, 0, 255, 255));
         this->setPosition(-100.f, -100.f);
     }
 
-    // tell breadcrumb to render self, using current render window
     void draw(sf::RenderWindow* window) {
         window->draw(*this);
     }
@@ -38,32 +34,25 @@ private:
     int id;
 };
 
-// ------------------------------
-// Boid Class with Wander and Breadcrumbs using Image
-// ------------------------------
+
 class Boid {
 public:
-    // Note: We pass the texture by const reference.
     Boid(sf::RenderWindow* win, std::vector<crumb>* crumbs, const sf::Texture& texture)
         : window(win), breadcrumbs(crumbs)
     {
-        // initial kinematic state
         kinematic.position = sf::Vector2f(300.f, 300.f);
         kinematic.velocity = sf::Vector2f(50.f, 0.f); // initial velocity
         kinematic.orientation = 0.f;
         kinematic.rotation = 0.f;
         maxSpeed = 100.f;
         maxAcceleration = 50.f;
-        // Create wander behavior with chosen parameters.
         wanderBehavior = new WanderBehavior(maxAcceleration, maxSpeed,
-                                            20.f,  // wander offset
-                                            100.f,  // wander circle radius
-                                            2.0f,  // wander rate (radians per update)
+                                            150.f,  // wander offset
+                                            30.f,  // wander circle radius
+                                            0.5f,  // wander rate (radians per update)
                                             0.1f); // time to target for Arrive part
 
-        // Set up the sprite using the provided texture.
         boidSprite.setTexture(texture);
-        // Set the origin to the center for proper rotation.
         sf::FloatRect bounds = boidSprite.getLocalBounds();
         boidSprite.setOrigin(bounds.width / 2.f, bounds.height / 2.f);
         boidSprite.setScale(4.f, 4.f);
@@ -79,17 +68,13 @@ public:
 
     // update boid kinematics, drop breadcrumbs, and handle boundaries
     void update(float deltaTime) {
-        // Get steering from wander behavior.
         SteeringOutput steering = wanderBehavior->getSteering(kinematic, kinematic, deltaTime);
 
-        // Update velocity and position (Euler integration).
         kinematic.velocity += steering.linear * deltaTime;
-        // Limit speed.
         if (vectorLength(kinematic.velocity) > maxSpeed)
             kinematic.velocity = normalize(kinematic.velocity) * maxSpeed;
         kinematic.position += kinematic.velocity * deltaTime;
 
-        // Update orientation to match velocity direction.
         if (vectorLength(kinematic.velocity) > 0.001f)
             kinematic.orientation = std::atan2(kinematic.velocity.y, kinematic.velocity.x);
 
@@ -97,27 +82,9 @@ public:
         boidSprite.setPosition(kinematic.position);
         boidSprite.setRotation(kinematic.orientation * 180 / PI);
 
-        // Boundary handling: simple bounce.
-        /* sf::Vector2u winSize = window->getSize();
-        if (kinematic.position.x < 15.f) {
-            kinematic.position.x = 15.f;
-            kinematic.velocity.x *= -1;
-        }
-        if (kinematic.position.x > (winSize.x - 15)) {
-            kinematic.position.x = (winSize.x - 15);
-            kinematic.velocity.x *= -1;
-        }
-        if (kinematic.position.y < 15.f) {
-            kinematic.position.y = 15.f;
-            kinematic.velocity.y *= -1;
-        }
-        if (kinematic.position.y > (winSize.y - 15)) {
-            kinematic.position.y = (winSize.y - 15);
-            kinematic.velocity.y *= -1;
-        }
-        */
+    
 
-        // Boundary handling: screen wrapping.
+        // Boundary handling
         sf::Vector2u winSize = window->getSize();
         if (kinematic.position.x < 0.f)
             kinematic.position.x = static_cast<float>(winSize.x);
@@ -150,39 +117,31 @@ private:
     float maxAcceleration;
     WanderBehavior* wanderBehavior;
 
-    // Use an SFML sprite to display the boid image.
     sf::Sprite boidSprite;
 
-    // Breadcrumb dropping variables.
     std::vector<crumb>* breadcrumbs;
     float dropTimer;
     float dropInterval;
     size_t crumbIndex = 0;
 };
 
-// ------------------------------
-// Main Function
-// ------------------------------
+
 int main()
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     sf::RenderWindow window(sf::VideoMode(640, 480), "Part 3");
     window.setFramerateLimit(60);
 
-    // Load the boid texture from file "boid-sm.png"
     sf::Texture boidTexture;
     if (!boidTexture.loadFromFile("./src/boid-sm.png")) {
-        // Handle error if texture fails to load.
         return -1;
     }
 
-    // Create breadcrumbs (for example, 20 crumbs).
     std::vector<crumb> breadcrumbs;
     for (int i = 0; i < 20; i++) {
         breadcrumbs.push_back(crumb(i));
     }
 
-    // Create the boid with the loaded texture.
     Boid boid(&window, &breadcrumbs, boidTexture);
 
     sf::Clock clock;
@@ -199,7 +158,6 @@ int main()
         boid.update(deltaTime);
 
         window.clear(sf::Color::White);
-        // Draw breadcrumbs.
         for (auto& c : breadcrumbs)
             c.draw(&window);
         boid.draw();

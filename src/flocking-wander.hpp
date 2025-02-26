@@ -6,9 +6,7 @@
 #include <cstdlib>
 #include <vector>
 
-// -----------------------------------------------------------------
-// Utility Functions and Constants
-// -----------------------------------------------------------------
+
 const float PI = 3.14159265f;
 
 inline float vectorLength(const sf::Vector2f& v) {
@@ -41,24 +39,22 @@ inline float mapToRange(float angle) {
     return angle;
 }
 
-// -----------------------------------------------------------------
-// Data Structures
-// -----------------------------------------------------------------
+
+
 struct Kinematic {
     sf::Vector2f position;
     sf::Vector2f velocity;
-    float orientation; // in radians
-    float rotation;    // angular velocity (radians per second)
+    float orientation; // radians
+    float rotation;    // radians per second
 };
 
 struct SteeringOutput {
-    sf::Vector2f linear; // linear acceleration
-    float angular;       // angular acceleration (radians per second^2)
+    sf::Vector2f linear;
+    float angular;       // (radians per second^2)
 };
 
-// -----------------------------------------------------------------
-// Abstract Steering Behavior Base Class
-// -----------------------------------------------------------------
+
+
 class SteeringBehavior {
 public:
     virtual ~SteeringBehavior() {}
@@ -67,10 +63,9 @@ public:
                                        float deltaTime) = 0;
 };
 
-// -----------------------------------------------------------------
-// Wander Behavior
-// -----------------------------------------------------------------
-// Causes a character to wander by choosing a random target on a circle.
+
+
+// Wanders by choosing a random target on a circle.
 class WanderBehavior : public SteeringBehavior {
 public:
     WanderBehavior(float maxAccel, float maxSpeed,
@@ -83,25 +78,25 @@ public:
     {}
 
     virtual SteeringOutput getSteering(const Kinematic& character,
-                                       const Kinematic& /*unused*/,
+                                       const Kinematic&,
                                        float /*deltaTime*/) override {
-        // Update wander orientation by a random binomial amount.
+        // taking a random binomial number to update wander
         wanderOrientation += randomBinomial() * wanderRate;
         float targetOrientation = character.orientation + wanderOrientation;
         
-        // Calculate the center of the wander circle.
+        // calculating center of the wander circle.
         sf::Vector2f circleCenter = character.position + normalize(character.velocity) * wanderOffset;
-        // Calculate the displacement on the circle.
+        // calculating point on the circle.
         sf::Vector2f displacement(std::cos(targetOrientation), std::sin(targetOrientation));
         displacement *= wanderRadius;
         
-        // Determine the wander target.
+        // fixing the wander target.
         sf::Vector2f wanderTarget = circleCenter + displacement;
         
-        // Simple Arrive behavior toward the wander target.
+        // Arriving towards wander target
         sf::Vector2f direction = wanderTarget - character.position;
         float distance = vectorLength(direction);
-        const float targetRadius = 5.f; // within this distance, no acceleration
+        const float targetRadius = 5.f; 
         const float slowRadius = wanderRadius;
         if (distance < targetRadius) {
             return SteeringOutput{ sf::Vector2f(0.f, 0.f), 0.f };
@@ -122,24 +117,21 @@ private:
     float timeToTarget;
     float wanderOrientation;
 
-    // Returns a roughly binomial random value between -1 and 1.
+    // random binomial value between -1 and 1
     float randomBinomial() {
         return ((float)std::rand() / RAND_MAX) - ((float)std::rand() / RAND_MAX);
     }
 };
 
-// -----------------------------------------------------------------
-// Flocking Behavior (Boids)
-// -----------------------------------------------------------------
-// Combines separation, alignment, and cohesion. If no neighbors
-// are found, it falls back to the wander behavior.
+
+// If no neighbors are found, it goes back to the wander behavior.
 class FlockingBehavior : public SteeringBehavior {
 public:
     FlockingBehavior(const std::vector<Kinematic>* flock,
                      float neighborRadius, float separationRadius,
                      float separationWeight, float alignmentWeight, float cohesionWeight,
                      float maxAcceleration,
-                     // Parameters for the fallback wander behavior:
+                     // Parameters for wander behavior:
                      float wanderMaxAccel, float wanderMaxSpeed, float wanderOffset,
                      float wanderRadius, float wanderRate, float wanderTimeToTarget)
         : flock(flock), neighborRadius(neighborRadius), separationRadius(separationRadius),
@@ -149,14 +141,14 @@ public:
     {}
 
     virtual SteeringOutput getSteering(const Kinematic& character,
-                                       const Kinematic& /*unused*/,
+                                       const Kinematic& ,
                                        float deltaTime) override {
         sf::Vector2f separation(0.f, 0.f);
         sf::Vector2f alignment(0.f, 0.f);
         sf::Vector2f cohesion(0.f, 0.f);
         int count = 0;
         for (const auto& other : *flock) {
-            // Skip self by checking address.
+            
             if (&other == &character)
                 continue;
             sf::Vector2f toOther = other.position - character.position;
@@ -171,14 +163,14 @@ public:
             }
         }
         if (count == 0) {
-            // If no neighbors, fall back to wandering.
+            // if no neighbours, wander
             return wander.getSteering(character, character, deltaTime);
         }
         
         alignment /= static_cast<float>(count);
         cohesion = (cohesion / static_cast<float>(count)) - character.position;
         
-        // Combine the forces using the provided weights.
+        
         sf::Vector2f force = separation * separationWeight +
                              alignment * alignmentWeight +
                              cohesion * cohesionWeight;
@@ -197,4 +189,4 @@ private:
     WanderBehavior wander;
 };
 
-#endif // FLOCKING_WANDER_HPP
+#endif 

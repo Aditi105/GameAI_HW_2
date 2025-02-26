@@ -1,11 +1,11 @@
-# Pick up the first (and only) .cpp file in src, regardless of its name.
-SRC := $(firstword $(wildcard src/*.cpp))
+# Get all .cpp files in src and determine their corresponding binary names.
+SOURCES   := $(wildcard src/*.cpp)
+BINARIES  := $(patsubst src/%.cpp, %, $(SOURCES))
 BUILD_DIR := build
-BIN := main
 
-CXX := g++
+CXX      := g++
 CXXFLAGS := -std=c++17 -Isrc
-LDFLAGS := -lsfml-graphics -lsfml-window -lsfml-system
+LDFLAGS  := -lsfml-graphics -lsfml-window -lsfml-system
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -14,19 +14,23 @@ else ifeq ($(UNAME_S),Linux)
     LIB_PATHS := -L/usr/lib/aarch64-linux-gnu -L/usr/lib/x86_64-linux-gnu
 endif
 
-all: $(BIN)
+# 'all' target builds every binary.
+all: $(BINARIES)
 
-$(BIN): $(BUILD_DIR)/main.o
+# Link each executable from its corresponding object file.
+%: $(BUILD_DIR)/%.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LIB_PATHS)
 
-$(BUILD_DIR)/main.o: $(SRC)
+# Compile each .cpp file into an object file in the build directory.
+$(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $(SRC) -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(BIN)
+	rm -rf $(BUILD_DIR) $(BINARIES)
 
 .PHONY: run
-run: $(BIN)
-	./$(BIN)
+# Optional: run a specific binary by specifying its name on the command line, e.g., make run EXE=part1
+run: $(EXE)
+	./$(EXE)

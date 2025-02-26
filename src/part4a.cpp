@@ -4,25 +4,19 @@
 #include <vector>
 #include "flocking-wander.hpp"
 
-// -----------------------------------------------------------------
-// Breadcrumb Code
-// -----------------------------------------------------------------
 class crumb : public sf::CircleShape {
 public:
     crumb(int id) {
         this->id = id;
-        // Set breadcrumb radius to 3.
         this->setRadius(1.5f);
         this->setFillColor(sf::Color(0, 0, 255, 255));
         this->setPosition(-100.f, -100.f);
     }
 
-    // Draw the breadcrumb.
     void draw(sf::RenderWindow* window) {
         window->draw(*this);
     }
 
-    // Update the breadcrumb position.
     void drop(float x, float y) {
         this->setPosition(x, y);
     }
@@ -34,11 +28,10 @@ private:
     int id;
 };
 
-// Structure to hold a boid's breadcrumb trail.
 struct BoidBreadcrumbs {
-    std::vector<crumb> crumbs; // Always 10 breadcrumbs.
-    float drop_timer;          // Time until next crumb drop.
-    int crumb_idx;             // Index of next crumb to update.
+    std::vector<crumb> crumbs;
+    float drop_timer;
+    int crumb_idx;
 
     BoidBreadcrumbs() : drop_timer(0.1f), crumb_idx(0) {
         for (int i = 0; i < 10; ++i) {
@@ -47,22 +40,17 @@ struct BoidBreadcrumbs {
     }
 };
 
-// -----------------------------------------------------------------
-// Window and Boid Settings
-// -----------------------------------------------------------------
 const int windowWidth = 800;
 const int windowHeight = 600;
 const int numBoids = 150;
 
-// Flocking parameters tuned for grouping together.
 const float neighborRadius    = 20.f;
 const float separationRadius  = 20.f;
 const float separationWeight  = 5.0f;
 const float alignmentWeight   = 1.f;
 const float cohesionWeight    = 1.0f;
-const float maxAccel          = 250.f;  // maximum acceleration (and steering force)
+const float maxAccel          = 250.f;
 
-// Wander fallback parameters (same maxAccel and maxSpeed)
 const float wanderMaxAccel    = 5.f;
 const float wanderMaxSpeed    = 7.f;
 const float wanderOffset      = 10.f;
@@ -71,33 +59,25 @@ const float wanderRate        = 1.0f;
 const float wanderTimeToTarget= 0.1f;
 
 const float initialSpeed      = 13.f;
-const float maxSpeed          = 13.f;  // maximum boid speed
+const float maxSpeed          = 13.f;
 
-// -----------------------------------------------------------------
-// Main Function
-// -----------------------------------------------------------------
 int main()
 {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-    // Load the boid texture (located in "src/boid-sm.png")
     sf::Texture boidTexture;
     if (!boidTexture.loadFromFile("src/boid-sm.png"))
     {
-        // If texture loading fails, exit.
         return -1;
     }
-    // Set texture origin to its center.
     sf::Vector2u texSize = boidTexture.getSize();
     sf::Vector2f textureOrigin(texSize.x / 2.f, texSize.y / 2.f);
 
-    // Vectors to store boid kinematics, behavior, sprites, and breadcrumbs.
     std::vector<Kinematic> flock;
     std::vector<FlockingBehavior> behaviors;
     std::vector<sf::Sprite> sprites;
     std::vector<BoidBreadcrumbs> boidBreadcrumbs;
 
-    // Initialize each boid.
     for (int i = 0; i < numBoids; ++i)
     {
         Kinematic k;
@@ -109,7 +89,6 @@ int main()
         k.rotation = 0.f;
         flock.push_back(k);
 
-        // Each boid gets its own flocking behavior instance (all share the global flock vector).
         behaviors.push_back(FlockingBehavior(&flock,
                                                neighborRadius, separationRadius,
                                                separationWeight, alignmentWeight, cohesionWeight,
@@ -117,15 +96,12 @@ int main()
                                                wanderMaxAccel, wanderMaxSpeed, wanderOffset,
                                                wanderRadius, wanderRate, wanderTimeToTarget));
 
-        // Create a sprite for the boid.
         sf::Sprite sprite;
         sprite.setTexture(boidTexture);
         sprite.setOrigin(textureOrigin);
-        // Scale the sprite by 1.5 to better center it.
         sprite.setScale(1.f, 1.f);
         sprites.push_back(sprite);
 
-        // Create a breadcrumb trail for this boid.
         boidBreadcrumbs.push_back(BoidBreadcrumbs());
     }
 
@@ -145,44 +121,35 @@ int main()
         sf::Time dt = clock.restart();
         float deltaTime = dt.asSeconds();
 
-        // Update each boid's kinematics.
         for (int i = 0; i < numBoids; ++i)
         {
             SteeringOutput steering = behaviors[i].getSteering(flock[i], flock[i], deltaTime);
             flock[i].velocity += steering.linear * deltaTime;
-            // Clamp velocity to maximum speed.
             flock[i].velocity = clamp(flock[i].velocity, maxSpeed);
             flock[i].position += flock[i].velocity * deltaTime;
 
-            // Wrap around window boundaries.
             if (flock[i].position.x < 0) flock[i].position.x += windowWidth;
             if (flock[i].position.y < 0) flock[i].position.y += windowHeight;
             if (flock[i].position.x > windowWidth) flock[i].position.x -= windowWidth;
             if (flock[i].position.y > windowHeight) flock[i].position.y -= windowHeight;
 
-            // Update orientation to align with velocity direction.
             if (vectorLength(flock[i].velocity) > 0)
                 flock[i].orientation = std::atan2(flock[i].velocity.y, flock[i].velocity.x);
         }
 
-        // Update breadcrumbs for each boid.
         for (int i = 0; i < numBoids; ++i)
         {
             boidBreadcrumbs[i].drop_timer -= deltaTime;
             if (boidBreadcrumbs[i].drop_timer <= 0.f)
             {
-                boidBreadcrumbs[i].drop_timer = 0.3f; // Reset drop interval.
-                // Drop the current crumb at the boid's current position.
+                boidBreadcrumbs[i].drop_timer = 0.3f;
                 boidBreadcrumbs[i].crumbs[boidBreadcrumbs[i].crumb_idx].drop(flock[i].position);
-                // Advance the circular index.
                 boidBreadcrumbs[i].crumb_idx = (boidBreadcrumbs[i].crumb_idx + 1) % 10;
             }
         }
 
-        // Clear window with white background.
         window.clear(sf::Color::White);
 
-        // Draw all breadcrumbs.
         for (int i = 0; i < numBoids; ++i)
         {
             for (auto& c : boidBreadcrumbs[i].crumbs)
@@ -191,7 +158,6 @@ int main()
             }
         }
 
-        // Draw boid sprites.
         for (int i = 0; i < numBoids; ++i)
         {
             sprites[i].setPosition(flock[i].position);
